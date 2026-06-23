@@ -1,33 +1,25 @@
-# Codex Task Guide
+# Codex Task: First Literature Search Agent
 
-Use this repository as a small literature discovery pipeline.
+Goal: keep this repository as a small, auditable literature-search pipeline.
 
-## First task
+## Immediate task
 
-Run the initial OpenAlex search and scoring pipeline.
+1. Install dependencies from `requirements.txt`.
+2. Run `python scripts/search_openalex.py`.
+3. Run `python scripts/score_papers.py`.
+4. Check whether the generated `reports/latest_candidates.md` is readable.
+5. Commit generated outputs only if they are not too large.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python scripts/search_openalex.py
-python scripts/score_papers.py
-```
+## Important constraints
 
-Then inspect `data/processed/metadata_scored.csv` and update `reports/latest_candidates.md` with the top candidates.
+- Do not download PDFs in the first stage.
+- Do not replace structured metadata with long prose summaries.
+- Keep DOI, OpenAlex ID, source query, and URL for traceability.
+- If a result looks relevant but uncertain, preserve it and mark the uncertainty rather than deleting it.
 
-## Expected output
+## Future improvements
 
-The report should not be a long literature review. It should be a screening handoff for ChatGPT, with:
-
-- top 20 to 30 candidate papers;
-- title, year, venue, DOI or URL;
-- score and reason for inclusion;
-- short uncertainty notes;
-- a next-search question list.
-
-## Important boundary
-
-Do not crawl full PDFs in the first round. Only use metadata, abstracts, concepts, DOI, and open-access links from OpenAlex.
-
-After ChatGPT screens the candidates, use the selected list to perform targeted full-text retrieval in a later round.
+- Add better deduplication by DOI and title similarity.
+- Add support for Crossref or Semantic Scholar.
+- Add a second-stage PDF metadata collector for papers selected by ChatGPT.
+- Add topic-specific negative filters after the first screening round.

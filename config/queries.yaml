@@ -1,9 +1,8 @@
-# Search topics for the literature agent.
-# Keep queries specific enough for screening, but broad enough for discovery.
-
 topics:
   - name: fault_location_missing_bad_data
-    description: Fault location in distribution or active distribution networks under missing or bad measurements.
+    description: >
+      Fault location in active distribution networks under sparse, missing,
+      and corrupted measurements, especially with DG and PMU/FTU data.
     queries:
       - '"fault location" "distribution network" "missing data"'
       - '"fault location" "distribution network" "bad data"'
@@ -14,6 +13,6 @@ topics:
       - '"compressed sensing" "fault location" "distribution network"'
 
 settings:
+  per_query: 25
   from_publication_year: 2015
-  per_query_limit: 25
-  sort: relevance_score:desc
+  mailto: ""

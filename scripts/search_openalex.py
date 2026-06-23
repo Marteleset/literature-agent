@@ -1,27 +1,33 @@
-#!/usr/bin/env python3
-"""Search OpenAlex and write normalized literature metadata.
+"""Search OpenAlex and export normalized literature metadata.
 
 Usage:
     python scripts/search_openalex.py
-    python scripts/search_openalex.py --config config/queries.yaml --out data/processed
+
+Outputs:
+    data/raw/openalex_results.jsonl
+    data/processed/metadata.csv
+    data/processed/metadata.jsonl
 """
 
 from __future__ import annotations
 
-import argparse
 import csv
 import json
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
 import requests
 import yaml
 
-OPENALEX_WORKS_URL = "https://api.openalex.org/works"
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG_PATH = ROOT / "config" / "queries.yaml"
+RAW_PATH = ROOT / "data" / "raw" / "openalex_results.jsonl"
+CSV_PATH = ROOT / "data" / "processed" / "metadata.csv"
+JSONL_PATH = ROOT / "data" / "processed" / "metadata.jsonl"
+OPENALEX_URL = "https://api.openalex.org/works"
 
-CSV_FIELDS = [
+FIELDS = [
     "paper_id",
     "title",
     "year",
@@ -32,119 +38,108 @@ CSV_FIELDS = [
     "url",
     "abstract",
     "concepts",
-    "query_topic",
-    "query_text",
-    "score",
-    "reason_for_inclusion",
-    "uncertainty",
+    "cited_by_count",
+    "is_open_access",
+    "pdf_url",
+    "source_topic",
+    "source_query",
 ]
 
 
-def reconstruct_abstract(inv_index: dict[str, list[int]] | None) -> str:
-    if not inv_index:
+def abstract_from_inverted_index(index: dict[str, list[int]] | None) -> str:
+    if not index:
         return ""
-    positions: list[tuple[int, str]] = []
-    for word, idxs in inv_index.items():
-        for idx in idxs:
-            positions.append((idx, word))
-    return " ".join(word for _, word in sorted(positions))
+    words: list[tuple[int, str]] = []
+    for word, positions in index.items():
+        for pos in positions:
+            words.append((pos, word))
+    return " ".join(word for _, word in sorted(words))
 
 
-def fetch_openalex(query: str, year_from: int, per_page: int, sort: str) -> list[dict[str, Any]]:
-    params = {
-        "search": query,
-        "filter": f"from_publication_date:{year_from}-01-01",
-        "per-page": per_page,
-        "sort": sort,
-    }
-    response = requests.get(OPENALEX_WORKS_URL, params=params, timeout=30)
-    response.raise_for_status()
-    return response.json().get("results", [])
-
-
-def normalize_work(work: dict[str, Any], topic: str, query: str) -> dict[str, Any]:
+def normalize_work(work: dict[str, Any], topic_name: str, query: str) -> dict[str, Any]:
     authorships = work.get("authorships") or []
     authors = "; ".join(
-        a.get("author", {}).get("display_name", "") for a in authorships if a.get("author")
+        a.get("author", {}).get("display_name", "")
+        for a in authorships
+        if a.get("author", {}).get("display_name")
     )
-    venue = (work.get("primary_location") or {}).get("source", {}) or {}
-    doi = work.get("doi") or ""
-    concepts = "; ".join(
-        c.get("display_name", "") for c in (work.get("concepts") or [])[:8]
-    )
-    abstract = reconstruct_abstract(work.get("abstract_inverted_index"))
+    primary_location = work.get("primary_location") or {}
+    source = primary_location.get("source") or {}
+    open_access = work.get("open_access") or {}
+    concepts = work.get("concepts") or []
 
-    row = {
+    return {
         "paper_id": (work.get("id") or "").rsplit("/", 1)[-1],
         "title": work.get("title") or "",
         "year": work.get("publication_year") or "",
         "authors": authors,
-        "venue": venue.get("display_name", ""),
-        "doi": doi,
+        "venue": source.get("display_name") or "",
+        "doi": work.get("doi") or "",
         "openalex_id": work.get("id") or "",
-        "url": doi or work.get("id") or "",
-        "abstract": abstract,
-        "concepts": concepts,
-        "query_topic": topic,
-        "query_text": query,
-        "score": "",
-        "reason_for_inclusion": "",
-        "uncertainty": "not_screened",
+        "url": work.get("landing_page_url") or work.get("id") or "",
+        "abstract": abstract_from_inverted_index(work.get("abstract_inverted_index")),
+        "concepts": "; ".join(c.get("display_name", "") for c in concepts[:8]),
+        "cited_by_count": work.get("cited_by_count") or 0,
+        "is_open_access": open_access.get("is_oa", False),
+        "pdf_url": open_access.get("oa_url") or "",
+        "source_topic": topic_name,
+        "source_query": query,
     }
-    return row
 
 
-def dedupe_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    seen: set[str] = set()
-    output: list[dict[str, Any]] = []
-    for row in rows:
-        key = (row.get("doi") or row.get("openalex_id") or row.get("title") or "").lower()
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        output.append(row)
-    return output
-
-
-def write_outputs(rows: list[dict[str, Any]], out_dir: Path) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = out_dir / "metadata.csv"
-    jsonl_path = out_dir / "metadata.jsonl"
-
-    with csv_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    with jsonl_path.open("w", encoding="utf-8") as f:
-        for row in rows:
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+def search_openalex(query: str, per_page: int, from_year: int, mailto: str = "") -> list[dict[str, Any]]:
+    params: dict[str, Any] = {
+        "search": query,
+        "per-page": per_page,
+        "filter": f"from_publication_date:{from_year}-01-01",
+        "sort": "relevance_score:desc",
+    }
+    if mailto:
+        params["mailto"] = mailto
+    response = requests.get(OPENALEX_URL, params=params, timeout=30)
+    response.raise_for_status()
+    return response.json().get("results", [])
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="config/queries.yaml")
-    parser.add_argument("--out", default="data/processed")
-    args = parser.parse_args()
-
-    config = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+    config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     settings = config.get("settings", {})
-    year_from = int(settings.get("from_publication_year", 2015))
-    per_query_limit = int(settings.get("per_query_limit", 25))
-    sort = settings.get("sort", "relevance_score:desc")
+    per_query = int(settings.get("per_query", 25))
+    from_year = int(settings.get("from_publication_year", 2015))
+    mailto = settings.get("mailto", "")
 
+    RAW_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    seen: set[str] = set()
     rows: list[dict[str, Any]] = []
-    for topic in config.get("topics", []):
-        topic_name = topic["name"]
-        for query in topic.get("queries", []):
-            print(f"Searching [{topic_name}] {query}")
-            works = fetch_openalex(query, year_from, per_query_limit, sort)
-            rows.extend(normalize_work(work, topic_name, query) for work in works)
-            time.sleep(0.2)
 
-    rows = dedupe_rows(rows)
-    write_outputs(rows, Path(args.out))
-    print(f"Wrote {len(rows)} unique records to {args.out}")
+    with RAW_PATH.open("w", encoding="utf-8") as raw_file:
+        for topic in config.get("topics", []):
+            topic_name = topic.get("name", "unnamed_topic")
+            for query in topic.get("queries", []):
+                print(f"Searching [{topic_name}] {query}")
+                works = search_openalex(query, per_query, from_year, mailto)
+                for work in works:
+                    raw_file.write(json.dumps({"topic": topic_name, "query": query, "work": work}, ensure_ascii=False) + "\n")
+                    row = normalize_work(work, topic_name, query)
+                    key = row["doi"] or row["openalex_id"] or row["title"].lower()
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    rows.append(row)
+                time.sleep(0.2)
+
+    with CSV_PATH.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with JSONL_PATH.open("w", encoding="utf-8") as jsonl_file:
+        for row in rows:
+            jsonl_file.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    print(f"Saved {len(rows)} unique records to {CSV_PATH}")
 
 
 if __name__ == "__main__":
