@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Generated data
+# Keep these commented for now so small generated outputs can be committed for screening.
+# data/processed/*.csv
+# data/processed/*.jsonl
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
