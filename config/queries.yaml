@@ -1,16 +1,72 @@
 topics:
-  - name: fault_location_missing_bad_data
+  - name: pmu_ftu_communication_data_quality
     description: >
-      Fault location in active distribution networks under sparse, missing,
-      and corrupted measurements, especially with DG and PMU/FTU data.
+      Communication and measurement data quality assessment for PMU, micro-PMU,
+      FTU, smart terminals, and distribution-level synchronized measurements.
+      Focus on missing data, packet loss, latency, time synchronization errors,
+      bad data, outliers, anomaly detection, and data recovery.
     queries:
-      - '"fault location" "distribution network" "missing data"'
+      - '"PMU" "data quality" "distribution network"'
+      - '"micro-PMU" "data quality" "distribution network"'
+      - '"phasor measurement unit" "data quality" "distribution system"'
+      - '"FTU" "data quality" "distribution network"'
+      - '"feeder terminal unit" "data quality" "distribution network"'
+      - '"distribution PMU" "missing data"'
+      - '"PMU" "packet loss" "distribution network"'
+      - '"PMU" "latency" "time synchronization"'
+      - '"PMU" "bad data detection" "distribution system"'
+      - '"PMU" "outlier detection" "distribution network"'
+      - '"PMU" "data recovery" "missing data"'
+      - '"synchrophasor" "data quality" "distribution"'
+      - '"synchrophasor" "missing data" "bad data"'
+
+  - name: distribution_topology_identification
+    description: >
+      Topology identification, topology verification, topology error detection,
+      switch status estimation, and network connectivity inference in distribution
+      systems using PMU, micro-PMU, smart meter, FTU, SCADA, or hybrid measurements.
+    queries:
+      - '"distribution network" "topology identification" "PMU"'
+      - '"distribution system" "topology identification" "micro-PMU"'
+      - '"distribution network" "topology estimation" "smart meter"'
+      - '"distribution network" "topology detection" "PMU"'
+      - '"distribution network" "topology verification"'
+      - '"distribution system" "topology error detection"'
+      - '"switch status estimation" "distribution network"'
+      - '"network topology identification" "distribution system"'
+      - '"radial distribution network" "topology identification"'
+      - '"distribution network" "connectivity identification"'
+      - '"distribution topology" "phasor measurement"'
+      - '"distribution system" "topology learning" "measurement data"'
+
+  - name: hybrid_measurement_quality_and_topology
+    description: >
+      Joint or related use of heterogeneous measurement data quality assessment
+      and topology identification in active distribution networks. This topic is
+      closest to the current research transition: PMU/FTU communication quality,
+      missing or corrupted measurements, and topology-aware downstream analysis.
+    queries:
+      - '"PMU" "FTU" "distribution network" "data quality"'
+      - '"hybrid measurement" "distribution network" "data quality"'
+      - '"sparse measurement" "distribution network" "topology identification"'
+      - '"missing data" "topology identification" "distribution network"'
+      - '"bad data" "topology identification" "distribution network"'
+      - '"communication failure" "distribution network" "PMU"'
+      - '"communication delay" "distribution network" "PMU"'
+      - '"data loss" "distribution automation" "FTU"'
+      - '"distribution automation" "data quality" "FTU"'
+      - '"active distribution network" "topology identification" "measurement"'
+
+  - name: downstream_fault_location_context
+    description: >
+      A small background topic kept only to connect data quality and topology
+      identification to later fault location research. It should not dominate
+      the first-stage literature search.
+    queries:
+      - '"fault location" "distribution network" "data quality"'
+      - '"fault location" "distribution network" "topology identification"'
+      - '"fault location" "distribution network" "PMU" "missing data"'
       - '"fault location" "distribution network" "bad data"'
-      - '"fault location" "active distribution network" "sparse measurement"'
-      - '"distributed generation" "fault location" "sparse measurement"'
-      - '"PMU" "FTU" "bad data" "distribution network"'
-      - '"sparse Bayesian learning" "fault location" "distribution network"'
-      - '"compressed sensing" "fault location" "distribution network"'
 
 settings:
   per_query: 25
